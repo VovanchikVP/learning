@@ -1,5 +1,5 @@
-from training.store import SampleStore, safe_name
 from tests.conftest import make_image
+from training.store import SampleStore, safe_name
 
 
 def test_add_is_idempotent_and_persists(tmp_path):

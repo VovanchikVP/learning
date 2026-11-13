@@ -23,6 +23,11 @@ def setup_logging(level: str = cc.DEFAULT_LOG_LEVEL) -> None:
     logging.basicConfig(level=level, format=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
 
 
+def metric(value: float | None, template: str) -> str:
+    """Метрика может быть не измерена (пустая val-выборка) — тогда печатаем n/a."""
+    return texts.METRIC_UNKNOWN if value is None else template.format(value=value)
+
+
 def dump(model) -> str:
     return model.model_dump_json(indent=cc.JSON_INDENT)
 
@@ -142,11 +147,13 @@ def cmd_seed_db(args: argparse.Namespace) -> int:
                             )
                         )
                     )
-                rows = []
+                rows: list[dict[str, str]] = []
                 for group in GROUPS:
                     rows.extend(
                         {"image": image, "answer": answer}
-                        for image, answer in generate(group, args.count, seed=args.seed + len(group))
+                        for image, answer in generate(
+                            group, args.count, seed=args.seed + len(group)
+                        )
                     )
                 await conn.execute(
                     text(
@@ -186,7 +193,7 @@ def cmd_selftest(args: argparse.Namespace) -> int:
     training = container.training
 
     def feed(count: int, seed: int) -> dict[str, int]:
-        added = {g: 0 for g in GROUPS}
+        added = dict.fromkeys(GROUPS, 0)
         for group in GROUPS:
             for image_b64, answer in generate(group, count, seed=seed):
                 row_id = str(uuid.uuid4())  # как в боевой таблице
@@ -202,29 +209,44 @@ def cmd_selftest(args: argparse.Namespace) -> int:
         print(texts.SELFTEST_ADDED.format(added=feed(args.initial, seed=cc.SELFTEST_SEED_INITIAL)))
         for group in GROUPS:
             result = await training.train_group(group, TrainKind.FULL)
-            print(texts.SELFTEST_FULL_RESULT.format(
-                group=group, cer=result.val_cer, accuracy=result.val_accuracy
-            ))
+            print(
+                texts.SELFTEST_FULL_RESULT.format(
+                    group=group,
+                    cer=metric(result.val_cer, texts.METRIC_CER),
+                    accuracy=metric(result.val_accuracy, texts.METRIC_ACCURACY),
+                )
+            )
 
         print(texts.SELFTEST_STEP_INCREMENT.format(count=args.new))
         print(texts.SELFTEST_ADDED.format(added=feed(args.new, seed=cc.SELFTEST_SEED_NEW)))
         for group in GROUPS:
             result = await training.train_group(group, TrainKind.INCREMENTAL)
-            print(texts.SELFTEST_INCREMENTAL_RESULT.format(
-                group=group, new=result.new_samples, baseline=result.baseline_cer,
-                cer=result.val_cer, accuracy=result.val_accuracy,
-                accepted=result.accepted, note=result.note,
-            ))
+            print(
+                texts.SELFTEST_INCREMENTAL_RESULT.format(
+                    group=group,
+                    new=result.new_samples,
+                    baseline=metric(result.baseline_cer, texts.METRIC_CER),
+                    cer=metric(result.val_cer, texts.METRIC_CER),
+                    accuracy=metric(result.val_accuracy, texts.METRIC_ACCURACY),
+                    accepted=result.accepted,
+                    note=result.note,
+                )
+            )
 
         print(texts.SELFTEST_STEP_PREDICT)
         for group in GROUPS:
             image_b64, answer = generate(group, 1, seed=cc.SELFTEST_SEED_PREDICT)[0]
             image = Image.open(BytesIO(base64.b64decode(image_b64)))
             out = container.prediction.predict(image)
-            print(texts.SELFTEST_PREDICTION.format(
-                group=group, answer=answer, predicted=out.group,
-                text=out.text, routed_by=out.routed_by,
-            ))
+            print(
+                texts.SELFTEST_PREDICTION.format(
+                    group=group,
+                    answer=answer,
+                    predicted=out.group,
+                    text=out.text,
+                    routed_by=out.routed_by,
+                )
+            )
         return 0
 
     return asyncio.run(main())

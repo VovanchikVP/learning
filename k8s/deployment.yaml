@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: continuous-learning
+  namespace: rtt
+  labels:
+    app: continuous-learning
+spec:
+  replicas: 1
+  # Реплика строго одна и меняется через остановку старой: том ReadWriteOnce,
+  # а веса моделей живут в памяти процесса — два пода писали бы в один кэш
+  # и в одни чекпоинты.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: continuous-learning
+  template:
+    metadata:
+      labels:
+        app: continuous-learning
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: continuous-learning
+          image: continuous-learning:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              # менять порт здесь и в UVICORN_PORT ниже одновременно:
+              # containerPort — это только метаданные, процесс слушает то,
+              # что сказано в UVICORN_PORT
+              containerPort: 8000
+          env:
+            - name: UVICORN_PORT
+              value: "8000"
+            # каталог примонтированного тома, см. volumeMounts
+            - name: CL_WORKDIR
+              value: /var/lib/continuous-learning
+            - name: CL_DEVICE
+              value: cpu
+            # имена таблицы и колонок с размеченными картинками
+            - name: CL_TABLE
+              value: labeled_images
+            - name: CL_ID_COLUMN
+              value: id
+            - name: CL_IMAGE_COLUMN
+              value: image
+            - name: CL_ANSWER_COLUMN
+              value: answer
+            # keyset-обход новых строк; колонке нужен индекс (created_at, id).
+            # Пусто — сервис сверяет все id таблицы с локальным кэшем.
+            - name: CL_CURSOR_COLUMN
+              value: created_at
+            # как часто опрашивать таблицу и сколько новых строк в группе
+            # запускают дообучение
+            - name: CL_POLL_INTERVAL
+              value: "5"
+            - name: CL_RETRAIN_THRESHOLD
+              value: "100"
+            # без ограничения torch берёт потоки по числу ядер ноды, а не по
+            # лимиту пода, и обучение начинает толкаться само с собой
+            - name: OMP_NUM_THREADS
+              value: "2"
+          envFrom:
+            # CL_PG_DSN: workflow CD собирает секрет из DATABASE_URL
+            - secretRef:
+                name: continuous-learning-db
+          # HTTP поднимается сразу, не дожидаясь базы: если Postgres недоступен,
+          # падает только фоновый цикл обучения, а /health продолжает отвечать
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 3
+            failureThreshold: 40
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: var
+              mountPath: /var/lib/continuous-learning
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              # обучение упирается в CPU; памяти берём с запасом на батчи torch
+              cpu: "2"
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: var
+          persistentVolumeClaim:
+            claimName: continuous-learning-var
+        - name: tmp
+          emptyDir: {}

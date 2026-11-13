@@ -5,6 +5,7 @@ import logging
 from config import Settings
 from constants.groups import GROUPS
 from schemas import ClassifierStatus, GroupName, GroupStatus
+
 from .classifier import GroupClassifier
 from .store import SampleStore
 from .trainer import GroupTrainer
@@ -24,8 +25,7 @@ class ModelRegistry:
         self.settings = settings
         settings.workdir.mkdir(parents=True, exist_ok=True)
         self.stores: dict[str, SampleStore] = {
-            group: SampleStore(settings.data_dir, group, settings.val_fraction)
-            for group in GROUPS
+            group: SampleStore(settings.data_dir, group, settings.val_fraction) for group in GROUPS
         }
         self.trainers: dict[str, GroupTrainer] = {
             group: GroupTrainer(group, self.stores[group], settings) for group in GROUPS

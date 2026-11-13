@@ -28,11 +28,13 @@ def decode_base64_image(value: str | bytes | memoryview) -> Image.Image:
         value = bytes(value)
     if isinstance(value, bytes):
         try:
-            value = value.decode(img_const.ASCII_ENCODING)
+            text = value.decode(img_const.ASCII_ENCODING)
         except UnicodeDecodeError:
             # колонка может хранить уже сырые байты картинки
             return _open_bytes(value)
-    text = value.strip()
+    else:
+        text = value
+    text = text.strip()
     if text.startswith(img_const.DATA_URL_PREFIX):
         _, _, text = text.partition(img_const.DATA_URL_SEPARATOR)
     try:
@@ -46,7 +48,7 @@ def _open_bytes(raw: bytes) -> Image.Image:
     try:
         img = Image.open(BytesIO(raw))
         img.load()
-    except Exception as exc:  # noqa: BLE001 - PIL бросает разные типы
+    except Exception as exc:
         raise ImageDecodeError(errors.IMAGE_OPEN_FAILED.format(error=exc)) from exc
     return img.convert(img_const.GRAYSCALE_MODE)
 
@@ -61,11 +63,15 @@ def augment(img: Image.Image, rng: random.Random) -> Image.Image:
     fill = int(_background(np.asarray(img, dtype=np.uint8)))
     if rng.random() < img_const.AUG_ROTATE_PROB:
         degrees = img_const.AUG_ROTATE_DEGREES
-        img = img.rotate(rng.uniform(-degrees, degrees), resample=Image.BILINEAR, fillcolor=fill)
+        img = img.rotate(
+            rng.uniform(-degrees, degrees), resample=Image.Resampling.BILINEAR, fillcolor=fill
+        )
     if rng.random() < img_const.AUG_SCALE_PROB:
         w, h = img.size
         scale = rng.uniform(*img_const.AUG_SCALE_RANGE)
-        img = img.resize((max(img_const.AUG_MIN_WIDTH, int(w * scale)), h), Image.BILINEAR)
+        img = img.resize(
+            (max(img_const.AUG_MIN_WIDTH, int(w * scale)), h), Image.Resampling.BILINEAR
+        )
     if rng.random() < img_const.AUG_BRIGHTNESS_PROB:
         img = ImageEnhance.Brightness(img).enhance(rng.uniform(*img_const.AUG_BRIGHTNESS_RANGE))
     if rng.random() < img_const.AUG_CONTRAST_PROB:
@@ -86,8 +92,8 @@ def preprocess(
     if augment_rng is not None:
         img = augment(img, augment_rng)
     w, h = img.size
-    new_w = max(min_width, min(max_width, int(round(w * height / max(h, 1)))))
-    img = img.resize((new_w, height), Image.BILINEAR)
+    new_w = max(min_width, min(max_width, round(w * height / max(h, 1))))
+    img = img.resize((new_w, height), Image.Resampling.BILINEAR)
     arr = np.asarray(img, dtype=np.float32)
     if _background(arr) < img_const.DARK_BACKGROUND_THRESHOLD:
         # тёмный фон -> инвертируем, модель ждёт тёмный текст на светлом

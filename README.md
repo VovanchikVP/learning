@@ -164,6 +164,45 @@ docker run -d --name cl-test -e POSTGRES_PASSWORD=test -p 55433:5432 postgres:17
 CL_TEST_PG_DSN=postgresql://postgres:test@127.0.0.1:55433/postgres uv run pytest tests/integration
 ```
 
+### Линтеры и форматер
+
+```bash
+uv run ruff check .          # правила
+uv run ruff check . --fix    # автоисправление
+uv run ruff format .         # форматирование
+uv run mypy                  # типы
+```
+
+Настройки — в `pyproject.toml`. Ruff держит строку в 100 символов и включает
+`E/W/F/I/UP/B/C4/SIM/RUF`; выключены только `RUF001-003` — они ругаются на
+кириллицу в комментариях, считая «с» и «р» похожими на латинские. Импорты
+сортирует сам ruff (`I`), все модули верхнего уровня перечислены как свои:
+пакет разложен по `src/` без промежуточной директории.
+
+Те же три проверки стоят на пре-коммите (`.pre-commit-config.yaml`). Хуки
+локальные и запускаются через `uv`, поэтому версии берутся из `uv.lock` — на
+коммите и в CI работает ровно одно и то же. Включить после `uv sync`:
+
+```bash
+uv run pre-commit install        # один раз на свежем клоне
+uv run pre-commit run --all-files  # прогнать по всему репозиторию
+git commit --no-verify           # разово пропустить хуки
+```
+
+`ruff check --fix` и `ruff format` правят файлы сами: если они что-то изменили,
+коммит прерывается, изменения остаются в рабочем дереве — достаточно `git add`
+и повторить коммит. Mypy ничего не правит и проверяет `src/` целиком, а не
+только изменённые файлы: по одному файлу он не видит импортирующие модули.
+
+Определения сетей в `training/networks.py` и `training/classifier.py` обёрнуты
+в `# fmt: off`: слои там выписаны таблицей с комментариями про размер тензора,
+а форматер разложил бы их по одному на строку и сломал выравнивание.
+
+Mypy проверяет `src/` с `check_untyped_defs`. Тесты не проверяются: они
+подставляют в `TrainingService` фейковый репозиторий вместо `ImageRepository`,
+и чтобы это было корректно с точки зрения типов, зависимость пришлось бы
+описать протоколом.
+
 ### Проверка без базы
 
 ```bash
@@ -255,3 +294,88 @@ var/
 
 Строки с битой картинкой пропускаются: их id запоминаются в `state.json`
 (`skipped_rows` в `/status`), повторно они не вычитываются.
+
+## CI/CD
+
+```
+.pre-commit-config.yaml   ruff check / ruff format / mypy на коммите
+Dockerfile                образ: uv-сборка зависимостей, рантайм python:3.13-slim
+k8s/                      kustomize-оверлей: namespace, pvc, deployment, service, ingress
+.github/workflows/ci.yml  тесты, сборка образа и проверка манифестов
+.github/workflows/cd.yml  публикация образа в GHCR и выкатка в k3s
+```
+
+### CI
+
+Запускается на pull request и на push в `main`/`master`, четыре независимые задачи:
+
+* **Линтеры и типы** — `ruff check`, `ruff format --check`, `mypy`.
+* **Тесты** — `uv sync --frozen` и весь `pytest`, включая `slow` (обучение
+  настоящих моделей, ~10 секунд) и `integration`: рядом поднимается
+  `postgres:17-alpine`, его DSN уходит в `CL_TEST_PG_DSN`. Перед тестами
+  приложение собирается через `create_app(run_watcher=False)` — так видно
+  ошибки импорта и валидации настроек без соединения с базой.
+* **Сборка образа** — `docker build` без публикации, чтобы сломанный Dockerfile
+  был виден на pull request, а не на выкатке.
+* **Манифесты k8s** — `kubectl kustomize k8s`.
+
+### CD
+
+Push в `main`/`master` (или запуск вручную) собирает образ на `linux/amd64`,
+пушит в GHCR двумя тегами (`<sha>` и `latest`), затем задача `deploy`
+(окружение `production`, можно повесить ручное подтверждение) поднимает
+WireGuard, подкладывает kubeconfig, собирает секрет и раскатывает оверлей:
+
+```
+kustomize edit set image continuous-learning=<образ>:<sha>
+kustomize build k8s | kubectl apply -f -
+kubectl -n rtt rollout status deployment/continuous-learning
+```
+
+Секреты репозитория (окружение `production`):
+
+| секрет | зачем |
+| --- | --- |
+| `WG_CONFIG` | конфиг WireGuard в base64 — через него раннер видит кластер |
+| `KUBE_API` | `https://<нода>:6443`, проверка доступности перед выкаткой |
+| `KUBE_CONFIG` | kubeconfig (base64 или открытым текстом), без `127.0.0.1` в `server` |
+| `DATABASE_URL` | строка подключения к Postgres, кладётся в секрет `continuous-learning-db` как `CL_PG_DSN` |
+
+Секрет создаётся на выкатке через `kubectl create secret --dry-run=client`,
+в репозитории не хранится и удаляется с раннера в `always()`-шаге.
+
+### Образ
+
+Зависимости ставятся отдельным слоем (`uv sync --locked --no-install-project
+--no-dev`), код копируется поверх. Под linux `torch` берётся из индекса
+`pytorch-cpu` (`[tool.uv.sources]` в `pyproject.toml`) — колёса `nvidia-*`
+весят несколько гигабайт, а в кластере обучение всё равно идёт на CPU; образ
+получается ~650 МБ. На macOS `torch` по-прежнему ставится с PyPI, со
+сборкой под MPS.
+
+Процесс запускается как `uvicorn --factory api:create_app` от пользователя
+`10001`, корень контейнера смонтирован только на чтение.
+
+### Выкатка в кластер
+
+Под один (`strategy: Recreate`): том `ReadWriteOnce`, а веса живут в памяти
+процесса — вторая реплика писала бы в тот же кэш и те же чекпоинты.
+`var/` вынесен на `PersistentVolumeClaim continuous-learning-var` (5 Gi,
+local-path в k3s): без тома после рестарта сервис заново выкачает таблицу и
+начнёт обучение с нуля.
+
+Настройки таблицы и темпа обучения лежат в `env` деплоймента
+(`CL_TABLE`, `CL_CURSOR_COLUMN`, `CL_POLL_INTERVAL`, `CL_RETRAIN_THRESHOLD`),
+строка подключения — в секрете. `OMP_NUM_THREADS` выставлен по лимиту CPU:
+иначе torch берёт потоки по числу ядер ноды и обучение толкается само с собой.
+
+Ingress — `traefik`, хост `ocr.home`, TLS выключен (API без браузерных фич);
+включается раскомментированием блока в `k8s/ingress.yaml`.
+
+Руками, без GitHub Actions:
+
+```bash
+cp k8s/secret.example.yaml k8s/secret.yaml   # прописать CL_PG_DSN
+kubectl apply -f k8s/secret.yaml
+kustomize build k8s | kubectl apply -f -
+```

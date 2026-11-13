@@ -1,10 +1,10 @@
-from datetime import UTC, datetime
+from datetime import datetime
 
 import pytest
 
 from schemas import ImageRow, TrainKind
-from training import TrainingService
 from tests.conftest import FakeImageRepository, image_base64, make_rows
+from training import TrainingService
 
 
 def test_ingest_row_routes_by_answer(training):

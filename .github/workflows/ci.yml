@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+jobs:
+  lint:
+    name: Линтеры и типы
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Установить uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Поставить зависимости
+        run: uv sync --frozen
+
+      - name: ruff check
+        run: uv run ruff check .
+
+      - name: ruff format
+        run: uv run ruff format --check .
+
+      - name: mypy
+        # проверяется src/, настройки — в [tool.mypy] pyproject.toml
+        run: uv run mypy
+
+  tests:
+    name: Тесты
+    runs-on: ubuntu-latest
+    services:
+      # для tests/integration/test_repository_pg.py: без CL_TEST_PG_DSN эти
+      # тесты просто пропускаются, а так проверяется настоящий keyset-обход
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Установить uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Поставить зависимости
+        run: uv sync --frozen
+
+      - name: Проверить, что приложение импортируется
+        # Settings собирается на импорте и валидирует имена таблицы и колонок;
+        # соединения тут не будет — пул открывается только в lifespan
+        run: uv run python -c "from api import create_app; create_app(run_watcher=False)"
+
+      - name: pytest
+        # -m без фильтра: гоняем и slow (обучает настоящие модели, ~10 секунд),
+        # и integration — Postgres поднят рядом
+        env:
+          CL_TEST_PG_DSN: postgresql://postgres:test@127.0.0.1:5432/postgres
+        run: uv run pytest -q
+
+  image:
+    name: Сборка образа
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Собрать без публикации
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  manifests:
+    name: Манифесты k8s
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Собрать kustomize-оверлей
+        run: kubectl kustomize k8s > /dev/null

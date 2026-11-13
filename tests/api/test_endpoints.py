@@ -37,7 +37,10 @@ def test_predict_rejects_broken_image(client):
 
 def test_predict_returns_result(client, container, monkeypatch):
     expected = PredictionResult(
-        group="words", text="корова", confidence=0.9, routed_by="classifier",
+        group="words",
+        text="корова",
+        confidence=0.9,
+        routed_by="classifier",
         group_confidence=0.95,
         candidates=[Candidate(group="words", text="корова", confidence=0.9)],
     )
@@ -49,7 +52,10 @@ def test_predict_returns_result(client, container, monkeypatch):
 
 
 def test_predict_validates_group(client):
-    assert client.post("/predict", json={"image": image_base64("x"), "group": "letters"}).status_code == 422
+    assert (
+        client.post("/predict", json={"image": image_base64("x"), "group": "letters"}).status_code
+        == 422
+    )
 
 
 def test_train_endpoint_runs_training(client, container, monkeypatch):

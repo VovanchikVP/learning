@@ -3,7 +3,8 @@
 Запускается, только если задан CL_TEST_PG_DSN, например:
 
     docker run -d --name cl-test -e POSTGRES_PASSWORD=test -p 55433:5432 postgres:17-alpine
-    CL_TEST_PG_DSN=postgresql://postgres:test@127.0.0.1:55433/postgres uv run pytest tests/integration
+    CL_TEST_PG_DSN=postgresql://postgres:test@127.0.0.1:55433/postgres \
+        uv run pytest tests/integration
 """
 
 from __future__ import annotations

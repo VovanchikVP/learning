@@ -30,7 +30,9 @@ def test_empty_cursor_column_means_disabled():
 
 
 def test_sqlalchemy_dsn_gets_asyncpg_driver():
-    assert Settings(pg_dsn="postgresql://u:p@h/db").sqlalchemy_dsn == "postgresql+asyncpg://u:p@h/db"
+    assert (
+        Settings(pg_dsn="postgresql://u:p@h/db").sqlalchemy_dsn == "postgresql+asyncpg://u:p@h/db"
+    )
     assert Settings(pg_dsn="postgres://u:p@h/db").sqlalchemy_dsn == "postgresql+asyncpg://u:p@h/db"
     already = "postgresql+asyncpg://u:p@h/db"
     assert Settings(pg_dsn=already).sqlalchemy_dsn == already

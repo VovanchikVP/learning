@@ -27,7 +27,6 @@ class StatusService:
             retrain_threshold=self.registry.settings.retrain_threshold,
             classifier=self.registry.classifier_status(),
             groups={
-                group: self.registry.group_status(group, pending.get(group, 0))
-                for group in GROUPS
+                group: self.registry.group_status(group, pending.get(group, 0)) for group in GROUPS
             },
         )

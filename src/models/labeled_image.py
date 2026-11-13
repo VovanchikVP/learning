@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -9,7 +9,7 @@ from sqlalchemy.types import NullType
 from config import Settings
 
 
-def build_labeled_image_model(settings: Settings) -> type:
+def build_labeled_image_model(settings: Settings) -> type[Any]:
     """Собирает ORM-модель таблицы с размеченными картинками.
 
     Имена таблицы и колонок задаются настройками, поэтому модель строится
@@ -23,7 +23,7 @@ def build_labeled_image_model(settings: Settings) -> type:
 
     class _Base(DeclarativeBase):
         # Mapped[Any] -> тип определяет сервер, см. docstring
-        type_annotation_map = {Any: NullType}
+        type_annotation_map: ClassVar[dict[Any, Any]] = {Any: NullType}
 
     class LabeledImage(_Base):
         __tablename__ = settings.table

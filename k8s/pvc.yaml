@@ -1,0 +1,16 @@
+# Кэш датасета (var/data), чекпоинты моделей (var/checkpoints) и курсор
+# обхода таблицы (var/state.json). Без тома под после рестарта начнёт
+# выкачивать всю таблицу заново и обучать модели с нуля.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: continuous-learning-var
+  namespace: rtt
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  # storageClassName не задан: в k3s сработает local-path по умолчанию.
+  # Том привязан к ноде — вместе с ним к ноде привязан и под.

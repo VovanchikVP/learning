@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from constants.defaults import DEFAULT_RETRAIN_THRESHOLD
-
 from pydantic import BaseModel, Field
 
+from constants.defaults import DEFAULT_RETRAIN_THRESHOLD
 from templates.api import FIELD_PENDING
 
 from .common import GroupName

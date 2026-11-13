@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: rtt
+
+resources:
+  - namespace.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+
+images:
+  # тег подставляет пайплайн: kustomize edit set image continuous-learning=<образ>:<tag>
+  - name: continuous-learning
+    newTag: latest
+
+# Секрет в оверлей намеренно не включён, чтобы в репозитории не лежал пароль:
+#   continuous-learning-db — создаёт workflow CD из секрета GitHub DATABASE_URL
+#                            (вручную: kubectl apply -f k8s/secret.yaml)
+# Подробности — в README.

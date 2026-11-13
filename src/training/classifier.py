@@ -13,6 +13,7 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 from config import Settings
+from constants import storage
 from constants import training as tc
 from constants.groups import GROUPS
 from constants.networks import (
@@ -20,10 +21,10 @@ from constants.networks import (
     CLASSIFIER_CLASSES,
     CLASSIFIER_INPUT_WIDTH,
 )
-from constants import storage
 from constants.storage import CLASSIFIER_CHECKPOINT_NAME, TMP_SUFFIX
 from schemas import ClassifierStatus, ClassifierTrainResult
 from templates import errors, logs, notes
+
 from .dataset import preprocess
 from .store import Sample, SampleStore
 from .trainer import pick_device
@@ -32,7 +33,9 @@ log = logging.getLogger(__name__)
 
 
 class _ClsDataset(Dataset):
-    def __init__(self, items: list[tuple[Sample, int]], height: int, augment: bool, seed: int) -> None:
+    def __init__(
+        self, items: list[tuple[Sample, int]], height: int, augment: bool, seed: int
+    ) -> None:
         self.items = items
         self.height = height
         self.augment = augment
@@ -71,12 +74,14 @@ class _Net(nn.Module):
     def __init__(self, n_classes: int = CLASSIFIER_CLASSES) -> None:
         super().__init__()
         c1, c2, c3 = CLASSIFIER_CHANNELS
+        # fmt: off
         self.body = nn.Sequential(
             nn.Conv2d(1, c1, 3, 1, 1), nn.BatchNorm2d(c1), nn.ReLU(True), nn.MaxPool2d(2),
             nn.Conv2d(c1, c2, 3, 1, 1), nn.BatchNorm2d(c2), nn.ReLU(True), nn.MaxPool2d(2),
             nn.Conv2d(c2, c3, 3, 1, 1), nn.BatchNorm2d(c3), nn.ReLU(True), nn.MaxPool2d(2),
             nn.AdaptiveAvgPool2d(1),
         )
+        # fmt: on
         self.head = nn.Linear(c3, n_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -111,8 +116,9 @@ class GroupClassifier:
     def is_ready(self) -> bool:
         return self.model is not None and self.version > 0
 
-    def _items(self) -> tuple[list, list]:
-        train, val = [], []
+    def _items(self) -> tuple[list[tuple[Sample, int]], list[tuple[Sample, int]]]:
+        train: list[tuple[Sample, int]] = []
+        val: list[tuple[Sample, int]] = []
         for label, group in enumerate(GROUPS):
             g_train, g_val = self.stores[group].split()
             train.extend((s, label) for s in g_train)
@@ -141,7 +147,10 @@ class GroupClassifier:
         with self.lock:
             train_items, val_items = self._items()
             labels_present = {lbl for _, lbl in train_items}
-            if len(labels_present) < CLASSIFIER_CLASSES or len(train_items) < tc.CLASSIFIER_MIN_SAMPLES:
+            if (
+                len(labels_present) < CLASSIFIER_CLASSES
+                or len(train_items) < tc.CLASSIFIER_MIN_SAMPLES
+            ):
                 return ClassifierTrainResult(note=notes.CLASSIFIER_NEEDS_BOTH_GROUPS)
             self.training = True
             started = time.time()
@@ -153,7 +162,9 @@ class GroupClassifier:
                 loss_fn = nn.CrossEntropyLoss()
                 loader = DataLoader(
                     _ClsDataset(train_items, self.settings.img_height, True, self.version),
-                    batch_size=tc.CLASSIFIER_BATCH_SIZE, shuffle=True, collate_fn=_collate,
+                    batch_size=tc.CLASSIFIER_BATCH_SIZE,
+                    shuffle=True,
+                    collate_fn=_collate,
                     num_workers=self.settings.num_workers,
                 )
                 eval_items = val_items or train_items[: tc.CLASSIFIER_EVAL_FALLBACK]
@@ -190,12 +201,13 @@ class GroupClassifier:
 
     @torch.no_grad()
     def predict(self, image: Image.Image) -> tuple[str, float]:
-        if not self.is_ready:
+        if not self.is_ready or self.model is None:
             raise RuntimeError(errors.CLASSIFIER_NOT_READY)
         with self.lock:
-            self.model.eval()
+            model = self.model
+            model.eval()
             arr = prepare(image, self.settings.img_height)
-            logits = self.model(torch.from_numpy(arr[None]).to(self.device)).cpu()
+            logits = model(torch.from_numpy(arr[None]).to(self.device)).cpu()
             probs = logits.softmax(1)[0]
             idx = int(probs.argmax())
             return GROUPS[idx], float(probs[idx])

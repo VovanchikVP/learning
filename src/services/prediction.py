@@ -72,13 +72,18 @@ class PredictionService:
                 continue
             text, confidence = trainer.predict([image])[0]
             candidates.append(
-                Candidate(group=name, text=text, confidence=round(confidence, CONFIDENCE_ROUND_DIGITS))
+                Candidate(
+                    group=name, text=text, confidence=round(confidence, CONFIDENCE_ROUND_DIGITS)
+                )
             )
         return candidates
 
     @staticmethod
     def _result(
-        chosen: Candidate, candidates: list[Candidate], routed_by: str, group_confidence: float | None
+        chosen: Candidate,
+        candidates: list[Candidate],
+        routed_by: str,
+        group_confidence: float | None,
     ) -> PredictionResult:
         return PredictionResult(
             group=chosen.group,

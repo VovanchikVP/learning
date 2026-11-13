@@ -37,6 +37,7 @@ class CRNN(nn.Module):
         self.lstm_hidden = lstm_hidden
 
         c1, c2, c3, c4 = CRNN_CHANNELS
+        # fmt: off
         self.cnn = nn.Sequential(
             nn.Conv2d(1, c1, 3, 1, 1), nn.ReLU(True),
             nn.MaxPool2d(2, 2),                                   # H/2,  W/2
@@ -51,6 +52,7 @@ class CRNN(nn.Module):
             nn.Conv2d(c4, ENCODER_OUT_CHANNELS, 2, 1, 0),
             nn.BatchNorm2d(ENCODER_OUT_CHANNELS), nn.ReLU(True),  # H/32, W/4-1
         )
+        # fmt: on
         self.rnn = nn.LSTM(
             ENCODER_OUT_CHANNELS,
             lstm_hidden,
@@ -63,7 +65,7 @@ class CRNN(nn.Module):
     def forward(self, images: torch.Tensor) -> torch.Tensor:
         """[B,1,H,W] -> логиты [T,B,C]."""
         feats = self.cnn(images)
-        b, c, h, w = feats.shape
+        h = feats.shape[2]
         if h != 1:
             feats = feats.mean(dim=2, keepdim=True)
         feats = feats.squeeze(2).permute(2, 0, 1)  # [W, B, C]
@@ -84,7 +86,9 @@ class CRNN(nn.Module):
 
 
 @torch.no_grad()
-def greedy_decode(logits: torch.Tensor, input_lengths: torch.Tensor, charset) -> tuple[list[str], list[float]]:
+def greedy_decode(
+    logits: torch.Tensor, input_lengths: torch.Tensor, charset
+) -> tuple[list[str], list[float]]:
     """CTC greedy decode. Возвращает тексты и среднюю уверенность по кадрам."""
     probs = logits.softmax(dim=2)  # [T, B, C]
     conf, indices = probs.max(dim=2)

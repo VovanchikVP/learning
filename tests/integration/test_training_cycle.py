@@ -42,7 +42,7 @@ async def test_full_cycle(settings, registry, training):
     assert registry.classifier.is_ready
 
     # инференс идёт на свежих весах
-    image_b64, answer = generate("digits", 1, seed=5)[0]
+    image_b64, _ = generate("digits", 1, seed=5)[0]
     prediction = PredictionService(registry).predict_base64(image_b64)
     assert prediction.group in {"words", "digits"}
     assert 0.0 <= prediction.confidence <= 1.0

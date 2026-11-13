@@ -13,14 +13,15 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from config import Settings
-from constants import training as tc
-from constants.networks import BLANK_INDEX
-from constants.defaults import DEVICE_AUTO
 from constants import storage
+from constants import training as tc
+from constants.defaults import DEVICE_AUTO
+from constants.networks import BLANK_INDEX
 from constants.storage import CHECKPOINT_SUFFIX, TMP_SUFFIX
 from schemas import EvalResult, GroupName, GroupStatus, GroupTrainingState, TrainKind, TrainResult
 from templates import errors, logs, notes
 from utils import cer as char_error_rate
+
 from .charset import CharSet
 from .dataset import OCRDataset, make_collate, preprocess
 from .networks import CRNN, greedy_decode, output_length
@@ -76,7 +77,9 @@ class GroupTrainer:
             self.model.to(self.device)
         return new_chars
 
-    def _loader(self, samples: list[Sample], batch_size: int, augment: bool, shuffle: bool) -> DataLoader:
+    def _loader(
+        self, samples: list[Sample], batch_size: int, augment: bool, shuffle: bool
+    ) -> DataLoader:
         ds = OCRDataset(
             samples,
             self.charset,
@@ -148,7 +151,11 @@ class GroupTrainer:
             if metrics.cer is not None:
                 sched.step(metrics.cer)
             log.info(
-                logs.EPOCH, self.group, epoch, epochs, last_loss,
+                logs.EPOCH,
+                self.group,
+                epoch,
+                epochs,
+                last_loss,
                 logs.METRIC_NOT_AVAILABLE if metrics.cer is None else f"{metrics.cer:.4f}",
                 metrics.accuracy,
             )
@@ -177,7 +184,10 @@ class GroupTrainer:
                 train_samples, val_samples = self.store.split()
                 if len(train_samples) < self.settings.min_samples_to_train:
                     return TrainResult(
-                        group=self.group, kind=TrainKind.FULL, started_at=started, accepted=False,
+                        group=self.group,
+                        kind=TrainKind.FULL,
+                        started_at=started,
+                        accepted=False,
                         train_samples=len(train_samples),
                         note=notes.NOT_ENOUGH_DATA.format(
                             count=len(train_samples), minimum=self.settings.min_samples_to_train
@@ -187,16 +197,24 @@ class GroupTrainer:
                 self.model = None
                 self._ensure_model([s.text for s in self.store.all()])
                 loss, metrics = self._train_epochs(
-                    train_samples, val_samples,
-                    self.settings.initial_epochs, self.settings.lr,
+                    train_samples,
+                    val_samples,
+                    self.settings.initial_epochs,
+                    self.settings.lr,
                     self.settings.early_stop_patience,
                 )
                 self._promote(metrics)
                 result = TrainResult(
-                    group=self.group, kind=TrainKind.FULL, started_at=started,
-                    duration_sec=time.time() - started, epochs=self.settings.initial_epochs,
-                    train_samples=len(train_samples), val_samples=len(val_samples),
-                    train_loss=loss, val_cer=metrics.cer, val_accuracy=metrics.accuracy,
+                    group=self.group,
+                    kind=TrainKind.FULL,
+                    started_at=started,
+                    duration_sec=time.time() - started,
+                    epochs=self.settings.initial_epochs,
+                    train_samples=len(train_samples),
+                    val_samples=len(val_samples),
+                    train_loss=loss,
+                    val_cer=metrics.cer,
+                    val_accuracy=metrics.accuracy,
                     accepted=True,
                 )
                 self._record(result)
@@ -223,8 +241,11 @@ class GroupTrainer:
                 old = [s for s in train_samples if s.id not in new_set]
                 if not fresh:
                     return TrainResult(
-                        group=self.group, kind=TrainKind.INCREMENTAL, started_at=started,
-                        accepted=False, note=notes.ALL_NEW_IN_VALIDATION,
+                        group=self.group,
+                        kind=TrainKind.INCREMENTAL,
+                        started_at=started,
+                        accepted=False,
+                        note=notes.ALL_NEW_IN_VALIDATION,
                     )
                 rng = random.Random(self.state.version)
                 replay_n = min(len(old), int(len(fresh) * self.settings.replay_ratio))
@@ -233,14 +254,20 @@ class GroupTrainer:
                 rng.shuffle(batch_samples)
 
                 self._ensure_model([s.text for s in fresh])
+                assert self.model is not None  # создана в _ensure_model
+                model = self.model
                 baseline = self.evaluate(val_samples)
-                snapshot = copy.deepcopy(self.model.state_dict())
+                snapshot = copy.deepcopy(model.state_dict())
 
                 loss, metrics = self._train_epochs(
-                    batch_samples, val_samples,
-                    self.settings.incremental_epochs, self.settings.incremental_lr,
-                    max(tc.INCREMENTAL_MIN_PATIENCE,
-                        self.settings.early_stop_patience // tc.INCREMENTAL_PATIENCE_DIVISOR),
+                    batch_samples,
+                    val_samples,
+                    self.settings.incremental_epochs,
+                    self.settings.incremental_lr,
+                    max(
+                        tc.INCREMENTAL_MIN_PATIENCE,
+                        self.settings.early_stop_patience // tc.INCREMENTAL_PATIENCE_DIVISOR,
+                    ),
                 )
 
                 accepted = self._is_acceptable(metrics, baseline)
@@ -248,7 +275,10 @@ class GroupTrainer:
                 if accepted:
                     self._promote(metrics)
                 else:
-                    self.model.load_state_dict(snapshot)
+                    model.load_state_dict(snapshot)
+                    # в else попадаем только когда обе метрики измерены:
+                    # иначе _is_acceptable вернул бы True
+                    assert metrics.cer is not None and baseline.cer is not None
                     note = notes.ROLLBACK.format(
                         cer=metrics.cer,
                         baseline=baseline.cer,
@@ -257,12 +287,20 @@ class GroupTrainer:
                     log.warning(logs.ROLLED_BACK, self.group, note)
 
                 result = TrainResult(
-                    group=self.group, kind=TrainKind.INCREMENTAL, started_at=started,
-                    duration_sec=time.time() - started, epochs=self.settings.incremental_epochs,
-                    train_samples=len(batch_samples), new_samples=len(fresh),
-                    val_samples=len(val_samples), train_loss=loss,
-                    val_cer=metrics.cer, val_accuracy=metrics.accuracy,
-                    baseline_cer=baseline.cer, accepted=accepted, note=note,
+                    group=self.group,
+                    kind=TrainKind.INCREMENTAL,
+                    started_at=started,
+                    duration_sec=time.time() - started,
+                    epochs=self.settings.incremental_epochs,
+                    train_samples=len(batch_samples),
+                    new_samples=len(fresh),
+                    val_samples=len(val_samples),
+                    train_loss=loss,
+                    val_cer=metrics.cer,
+                    val_accuracy=metrics.accuracy,
+                    baseline_cer=baseline.cer,
+                    accepted=accepted,
+                    note=note,
                 )
                 self._record(result)
                 if accepted:
@@ -295,7 +333,10 @@ class GroupTrainer:
             return EvalResult()
         self.model.eval()
         loader = self._loader(
-            samples, max(tc.MIN_EVAL_BATCH_SIZE, self.settings.batch_size), augment=False, shuffle=False
+            samples,
+            max(tc.MIN_EVAL_BATCH_SIZE, self.settings.batch_size),
+            augment=False,
+            shuffle=False,
         )
         total_cer, exact, count = 0.0, 0, 0
         for batch in loader:
@@ -309,10 +350,11 @@ class GroupTrainer:
 
     @torch.no_grad()
     def predict(self, images: list[Image.Image]) -> list[tuple[str, float]]:
-        if not self.is_ready:
+        if not self.is_ready or self.model is None:
             raise RuntimeError(errors.GROUP_MODEL_NOT_READY.format(group=self.group))
         with self.lock:
-            self.model.eval()
+            model = self.model
+            model.eval()
             arrays = [
                 preprocess(img, self.settings.img_height, self.settings.max_img_width)
                 for img in images
@@ -328,7 +370,7 @@ class GroupTrainer:
                 padded.append(arr)
             tensor = torch.from_numpy(np.stack(padded)).to(self.device)
             lengths = torch.full((len(padded),), output_length(max_w), dtype=torch.long)
-            logits = self.model(tensor).cpu()
+            logits = model(tensor).cpu()
             texts, confidences = greedy_decode(logits, lengths, self.charset)
             return list(zip(texts, confidences, strict=True))
 
@@ -350,7 +392,9 @@ class GroupTrainer:
         )
         tmp.replace(self.ckpt_path)
         log.info(
-            logs.CHECKPOINT_SAVED, self.group, self.state.version,
+            logs.CHECKPOINT_SAVED,
+            self.group,
+            self.state.version,
             logs.METRIC_NOT_AVAILABLE
             if self.state.best_val_cer is None
             else f"{self.state.best_val_cer:.4f}",
@@ -368,8 +412,11 @@ class GroupTrainer:
         self.model.to(self.device)
         self.state = GroupTrainingState.model_validate(payload.get(storage.CKPT_STATE, {}))
         log.info(
-            logs.CHECKPOINT_LOADED, self.group, self.state.version,
-            self.state.best_val_cer, self.state.trained_samples,
+            logs.CHECKPOINT_LOADED,
+            self.group,
+            self.state.version,
+            self.state.best_val_cer,
+            self.state.trained_samples,
         )
         return True
 

@@ -39,7 +39,7 @@ def test_settings_defaults_come_from_constants():
 
 def test_storage_names_are_consistent():
     assert storage.CLASSIFIER_CHECKPOINT_NAME.endswith(storage.CHECKPOINT_SUFFIX)
-    assert storage.IMAGE_EXTENSION == f".{storage.IMAGE_FORMAT.lower()}"
+    assert f".{storage.IMAGE_FORMAT.lower()}" == storage.IMAGE_EXTENSION
     assert storage.SAFE_NAME_RE.match("0b9d2a1e-1111-2222-3333-444455556666")
     assert not storage.SAFE_NAME_RE.match("../etc/passwd")
 
@@ -77,8 +77,14 @@ def test_api_routes_are_absolute():
 
 def test_cli_commands_are_unique():
     commands = [
-        cli.COMMAND_RUN, cli.COMMAND_WATCH, cli.COMMAND_BOOTSTRAP, cli.COMMAND_TRAIN,
-        cli.COMMAND_STATUS, cli.COMMAND_PREDICT, cli.COMMAND_SEED_DB, cli.COMMAND_SELFTEST,
+        cli.COMMAND_RUN,
+        cli.COMMAND_WATCH,
+        cli.COMMAND_BOOTSTRAP,
+        cli.COMMAND_TRAIN,
+        cli.COMMAND_STATUS,
+        cli.COMMAND_PREDICT,
+        cli.COMMAND_SEED_DB,
+        cli.COMMAND_SELFTEST,
     ]
     assert len(set(commands)) == len(commands)
 

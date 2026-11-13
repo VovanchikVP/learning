@@ -1,0 +1,30 @@
+# k3s по умолчанию несёт Traefik, поэтому ingressClassName: traefik.
+# Поменяйте host на свой домен.
+#
+# HTTPS сервису не обязателен (это API без браузерных фич), поэтому TLS здесь
+# выключен. Чтобы включить, как у show-img: выпустить сертификат через
+# cert-manager (аннотация ниже) и раскомментировать блок tls.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: continuous-learning
+  namespace: rtt
+  # annotations:
+  #   cert-manager.io/cluster-issuer: home-ca
+spec:
+  ingressClassName: traefik
+  # tls:
+  #   - hosts:
+  #       - ocr.home
+  #     secretName: continuous-learning-tls
+  rules:
+    - host: ocr.home
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: continuous-learning
+                port:
+                  name: http

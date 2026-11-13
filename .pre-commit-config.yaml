@@ -1,0 +1,32 @@
+# Хуки локальные (language: system) и запускаются через uv: версии ruff и mypy
+# берутся из uv.lock, поэтому на коммите и в CI работает ровно одно и то же.
+# Установить после uv sync:  uv run pre-commit install
+default_install_hook_types: [pre-commit]
+fail_fast: false
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: mypy
+        name: mypy
+        # src/ проверяется целиком: по отдельным файлам mypy не видит
+        # импортирующие модули и пропускает часть ошибок
+        entry: uv run mypy src
+        language: system
+        types: [python]
+        pass_filenames: false
+        require_serial: true

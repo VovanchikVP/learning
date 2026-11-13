@@ -95,7 +95,8 @@ class SampleStore:
 
     def split(self) -> tuple[list[Sample], list[Sample]]:
         """Детерминированное разбиение на train/val по id."""
-        train, val = [], []
+        train: list[Sample] = []
+        val: list[Sample] = []
         for sample in self.all():
             (val if is_val_sample(sample.id, self.val_fraction) else train).append(sample)
         return train, val

@@ -4,18 +4,20 @@ import asyncio
 import json
 import logging
 import time
+from contextlib import suppress
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from config import Settings, classify_answer
+from constants import storage
 from constants.api import TRAIN_TASK_NAME
 from constants.db import CURSOR_MODE_DIFF
 from constants.groups import GROUPS
-from constants import storage
 from constants.storage import ENCODING, JSON_INDENT, TMP_SUFFIX
 from schemas import CursorState, GroupName, ImageRow, IngestStats, TrainKind, TrainResult
 from templates import logs
 from templates.api import CURSOR_MODE_KEYSET
+
 from .dataset import ImageDecodeError, decode_base64_image
 from .registry import ModelRegistry
 
@@ -145,7 +147,7 @@ class TrainingService:
 
     async def _ingest_keyset(self) -> IngestStats:
         """Постраничный обход по (cursor_column, id) — для больших таблиц."""
-        stats = IngestStats(added={g: 0 for g in GROUPS})
+        stats = IngestStats(added=dict.fromkeys(GROUPS, 0))
         while not self._stop.is_set():
             rows = await self.repository.fetch_after(self.cursor, self.settings.fetch_batch)
             if not rows:
@@ -161,7 +163,7 @@ class TrainingService:
 
     async def _ingest_by_diff(self) -> IngestStats:
         """Сверка списка id из базы с локальным кэшем — когда cursor_column нет."""
-        stats = IngestStats(added={g: 0 for g in GROUPS})
+        stats = IngestStats(added=dict.fromkeys(GROUPS, 0))
         all_ids = await self.repository.fetch_ids()
         unknown = [row_id for row_id in all_ids if row_id not in self._known]
         if unknown:
@@ -208,8 +210,13 @@ class TrainingService:
                 log.info(logs.TRAIN_INCREMENTAL_START, group, len(batch_ids))
                 result = await asyncio.to_thread(trainer.train_incremental, batch_ids)
             log.info(
-                logs.TRAIN_DONE, group, result.duration_sec, result.val_cer,
-                result.val_accuracy, result.accepted, result.note,
+                logs.TRAIN_DONE,
+                group,
+                result.duration_sec,
+                result.val_cer,
+                result.val_accuracy,
+                result.accepted,
+                result.note,
             )
             self._save_state()
         if result.accepted:
@@ -245,10 +252,8 @@ class TrainingService:
                     kind = self.needs_training(group)
                     if kind:
                         self._schedule(group, kind)
-                try:
+                with suppress(TimeoutError):
                     await asyncio.wait_for(self._stop.wait(), timeout=self.settings.poll_interval)
-                except TimeoutError:
-                    pass
                 if self._stop.is_set():
                     break
                 stats = await self.ingest_new()

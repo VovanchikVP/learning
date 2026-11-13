@@ -31,7 +31,9 @@ def image_base64(text: str = "test", **kwargs) -> str:
 class FakeImageRepository:
     """Репозиторий в памяти: подменяет PostgreSQL в тестах."""
 
-    def __init__(self, rows: list[ImageRow] | None = None, cursor_column: str | None = None) -> None:
+    def __init__(
+        self, rows: list[ImageRow] | None = None, cursor_column: str | None = None
+    ) -> None:
         self.rows = rows or []
         self.cursor_column = cursor_column
         self.connected = False
@@ -104,7 +106,9 @@ def repository() -> FakeImageRepository:
 
 
 @pytest.fixture
-def training(settings: Settings, registry: ModelRegistry, repository: FakeImageRepository) -> TrainingService:
+def training(
+    settings: Settings, registry: ModelRegistry, repository: FakeImageRepository
+) -> TrainingService:
     return TrainingService(settings, registry, repository)
 
 

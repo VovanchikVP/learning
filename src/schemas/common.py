@@ -11,5 +11,7 @@ from constants.groups import (
 )
 
 #: значения берутся из слоя констант, чтобы список групп был в одном месте
-GroupName = Literal[WORDS, DIGITS]
-RoutingMode = Literal[ROUTING_EXPLICIT, ROUTING_CLASSIFIER, ROUTING_OCR_CONFIDENCE]
+GroupName = Literal[WORDS, DIGITS]  # type: ignore[valid-type]
+RoutingMode = Literal[  # type: ignore[valid-type]
+    ROUTING_EXPLICIT, ROUTING_CLASSIFIER, ROUTING_OCR_CONFIDENCE
+]

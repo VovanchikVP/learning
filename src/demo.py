@@ -25,17 +25,20 @@ def render(text: str, rng: random.Random, fonts: list[Path]) -> Image.Image:
     pad = rng.randint(*dc.PADDING_RANGE)
     tmp = ImageDraw.Draw(Image.new(GRAYSCALE_MODE, (1, 1)))
     box = tmp.textbbox((0, 0), text, font=font)
-    w, h = box[2] - box[0] + 2 * pad, box[3] - box[1] + 2 * pad
+    w, h = int(box[2] - box[0]) + 2 * pad, int(box[3] - box[1]) + 2 * pad
     bg = rng.randint(*dc.BACKGROUND_RANGE)
     img = Image.new(GRAYSCALE_MODE, (w, h), color=bg)
     draw = ImageDraw.Draw(img)
     draw.text((pad - box[0], pad - box[1]), text, fill=rng.randint(*dc.TEXT_FILL_RANGE), font=font)
     if rng.random() < dc.NOISE_PROB:  # лёгкий шум, чтобы данные не были стерильными
         px = img.load()
+        assert px is not None  # картинка только что создана в памяти
         for _ in range(int(w * h * dc.NOISE_SHARE)):
             px[rng.randrange(w), rng.randrange(h)] = rng.randint(*dc.NOISE_VALUE_RANGE)
     return img.rotate(
-        rng.uniform(-dc.ROTATE_DEGREES, dc.ROTATE_DEGREES), resample=Image.BILINEAR, fillcolor=bg
+        rng.uniform(-dc.ROTATE_DEGREES, dc.ROTATE_DEGREES),
+        resample=Image.Resampling.BILINEAR,
+        fillcolor=bg,
     )
 
 
