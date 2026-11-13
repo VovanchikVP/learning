@@ -8,7 +8,7 @@ ENV_FILE: Final = ".env"
 
 # база
 DEFAULT_PG_DSN: Final = "postgresql://postgres:postgres@localhost:5432/postgres"
-DEFAULT_TABLE: Final = "labeled_images"
+DEFAULT_TABLE: Final = "captcha"
 DEFAULT_ID_COLUMN: Final = "id"
 DEFAULT_IMAGE_COLUMN: Final = "image"
 DEFAULT_ANSWER_COLUMN: Final = "answer"
