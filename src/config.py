@@ -15,6 +15,7 @@ from constants.db import (
 from constants.groups import DIGITS, WORDS
 from constants.networks import HEIGHT_DIVISOR
 from constants.storage import CHECKPOINT_DIRNAME, DATA_DIRNAME, STATE_FILENAME
+from constants.training import MIN_DIGITS_ANSWER_LENGTH
 from templates import errors
 
 
@@ -107,9 +108,18 @@ class Settings(BaseSettings):
         return self.workdir / STATE_FILENAME
 
 
+def is_digits_answer(answer: str) -> bool:
+    """Ответ состоит только из цифр."""
+    cleaned = (answer or "").strip()
+    return bool(cleaned) and all(ch.isdigit() for ch in cleaned)
+
+
 def classify_answer(answer: str) -> str:
     """Группа строки: только цифры -> digits, иначе -> words."""
+    return DIGITS if is_digits_answer(answer) else WORDS
+
+
+def is_ignored_answer(answer: str) -> bool:
+    """Строку не берём ни в одну модель: короткое число — не текст с картинки."""
     cleaned = (answer or "").strip()
-    if cleaned and all(ch.isdigit() for ch in cleaned):
-        return DIGITS
-    return WORDS
+    return is_digits_answer(cleaned) and len(cleaned) < MIN_DIGITS_ANSWER_LENGTH

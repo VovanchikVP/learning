@@ -18,6 +18,10 @@ HISTORY_LIMIT: Final = 50
 INCREMENTAL_PATIENCE_DIVISOR: Final = 2
 INCREMENTAL_MIN_PATIENCE: Final = 3
 
+#: числа короче этого в обучение не берём: такие ответы приходят из полей,
+#: где цифра — это счётчик или код, а не текст с картинки
+MIN_DIGITS_ANSWER_LENGTH: Final = 5
+
 #: детерминированное разбиение train/val: crc32(id) % VAL_BUCKETS
 VAL_BUCKETS: Final = 1000
 

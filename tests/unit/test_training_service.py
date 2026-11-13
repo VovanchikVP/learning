@@ -9,9 +9,22 @@ from training import TrainingService
 
 def test_ingest_row_routes_by_answer(training):
     assert training.ingest_row("id-1", image_base64("корова"), "корова") == "words"
-    assert training.ingest_row("id-2", image_base64("1234"), "1234") == "digits"
+    assert training.ingest_row("id-2", image_base64("12345"), "12345") == "digits"
     assert len(training.registry.store("words")) == 1
     assert len(training.registry.store("digits")) == 1
+
+
+def test_short_numbers_are_ignored(training):
+    """Числа короче MIN_DIGITS_ANSWER_LENGTH не попадают ни в одну модель."""
+    assert training.ingest_row("short", image_base64("1234"), "1234") is None
+    assert training.ingest_row("padded", image_base64("42"), "  42  ") is None
+    assert training.ingest_row("long", image_base64("12345"), "12345") == "digits"
+
+    assert len(training.registry.store("digits")) == 1
+    assert len(training.registry.store("words")) == 0
+    assert {"short", "padded"} <= training.skipped_ids
+    # короткое слово остаётся: правило только про числа
+    assert training.ingest_row("word", image_base64("кот"), "кот") == "words"
 
 
 def test_ingest_row_is_idempotent(training):

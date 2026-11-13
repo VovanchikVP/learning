@@ -66,7 +66,7 @@ def make_rows(count: int, *, with_cursor: bool = False, start: int = 0) -> list[
     base = datetime(2026, 1, 1, tzinfo=UTC)
     rows = []
     for i in range(start, start + count):
-        answer = str(1000 + i) if i % 2 else f"слово{i}"
+        answer = str(10000 + i) if i % 2 else f"слово{i}"
         rows.append(
             ImageRow(
                 id=f"0000000{i:04d}-0000-0000-0000-000000000000",

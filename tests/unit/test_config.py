@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from config import Settings, classify_answer
+from config import Settings, classify_answer, is_ignored_answer
 from constants.groups import DIGITS, WORDS
 
 
@@ -18,6 +18,23 @@ from constants.groups import DIGITS, WORDS
 )
 def test_classify_answer(answer, group):
     assert classify_answer(answer) == group
+
+
+@pytest.mark.parametrize(
+    ("answer", "ignored"),
+    [
+        ("1234", True),
+        ("  42  ", True),
+        ("12345", False),
+        ("123456", False),
+        ("кот", False),
+        ("дом2", False),
+        ("12 34", False),
+        ("", False),
+    ],
+)
+def test_is_ignored_answer(answer, ignored):
+    assert is_ignored_answer(answer) is ignored
 
 
 def test_identifiers_are_validated():

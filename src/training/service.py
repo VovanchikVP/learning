@@ -8,12 +8,13 @@ from contextlib import suppress
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from config import Settings, classify_answer
+from config import Settings, classify_answer, is_ignored_answer
 from constants import storage
 from constants.api import TRAIN_TASK_NAME
 from constants.db import CURSOR_MODE_DIFF
 from constants.groups import GROUPS
 from constants.storage import ENCODING, JSON_INDENT, TMP_SUFFIX
+from constants.training import MIN_DIGITS_ANSWER_LENGTH
 from schemas import CursorState, GroupName, ImageRow, IngestStats, TrainKind, TrainResult
 from templates import logs
 from templates.api import CURSOR_MODE_KEYSET
@@ -121,6 +122,11 @@ class TrainingService:
         answer = (answer or "").strip()
         if not answer:
             self.skipped_ids.add(row_id)
+            return None
+        if is_ignored_answer(answer):
+            # помним id, чтобы не вычитывать строку из базы на каждом опросе
+            self.skipped_ids.add(row_id)
+            log.debug(logs.ROW_IGNORED_SHORT_NUMBER, row_id, answer, MIN_DIGITS_ANSWER_LENGTH)
             return None
         group = classify_answer(answer)
         try:

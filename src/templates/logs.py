@@ -21,6 +21,7 @@ DB_MODE_DIFF: Final = "сверка id"
 # приём данных
 STATE_RESTORED: Final = "состояние восстановлено: курсор=%s, ожидают дообучения %s"
 ROW_SKIPPED: Final = "строка id=%s пропущена: %s"
+ROW_IGNORED_SHORT_NUMBER: Final = "строка id=%s пропущена: число %r короче %d символов"
 NEW_IDS_FOUND: Final = "новых id в базе: %d"
 TABLE_SUMMARY: Final = "в таблице %s строк, в локальном кэше %s"
 BOOTSTRAP_DONE: Final = "загружено новых строк: %s"

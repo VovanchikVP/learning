@@ -2,6 +2,8 @@
 
 from typing import Final
 
+from constants.training import MIN_DIGITS_ANSWER_LENGTH
+
 FONT_CANDIDATES: Final[tuple[str, ...]] = (
     "/System/Library/Fonts/Supplemental/Arial.ttf",
     "/System/Library/Fonts/Supplemental/Verdana.ttf",
@@ -45,5 +47,7 @@ NOISE_PROB: Final = 0.5
 NOISE_SHARE: Final = 0.02
 NOISE_VALUE_RANGE: Final[tuple[int, int]] = (0, 255)
 ROTATE_DEGREES: Final = 2.0
-DIGITS_LENGTH_RANGE: Final[tuple[int, int]] = (3, 6)
+#: нижняя граница — из фильтра приёма: более короткие числа всё равно
+#: не попадут ни в одну модель
+DIGITS_LENGTH_RANGE: Final[tuple[int, int]] = (MIN_DIGITS_ANSWER_LENGTH, 6)
 DIGIT_RANGE: Final[tuple[int, int]] = (0, 9)
