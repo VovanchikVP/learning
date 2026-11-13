@@ -9,14 +9,14 @@ kind: Ingress
 metadata:
   name: continuous-learning
   namespace: rtt
-  # annotations:
-  #   cert-manager.io/cluster-issuer: home-ca
+  annotations:
+    cert-manager.io/cluster-issuer: home-ca
 spec:
   ingressClassName: traefik
-  # tls:
-  #   - hosts:
-  #       - ocr.home
-  #     secretName: continuous-learning-tls
+  tls:
+    - hosts:
+        - ocr.home
+      secretName: continuous-learning-tls
   rules:
     - host: ocr.home
       http:
