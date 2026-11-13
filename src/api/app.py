@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from config import Settings
 from constants.api import API_VERSION, BACKGROUND_TASK_NAME
 from templates.api import API_TITLE
+from utils import setup_logging
 
 from .container import AppContainer
 from .routes import router
@@ -28,6 +29,8 @@ def create_app(
     `run_watcher=False` выключает фоновый цикл обучения.
     """
     settings = settings or Settings()
+    # под uvicorn логирование никто не настраивает, иначе логов сервиса не видно
+    setup_logging(settings.log_level)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

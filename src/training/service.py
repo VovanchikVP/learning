@@ -45,6 +45,12 @@ class TrainingService:
         self._train_locks = {g: asyncio.Lock() for g in GROUPS}
         self._tasks: dict[str, asyncio.Task] = {}
         self._stop = asyncio.Event()
+        # видно в /status: жив ли фоновый цикл и на чём он споткнулся
+        self.watching = False
+        self.table_rows = 0
+        self.labeled_rows = 0
+        self.last_error: str | None = None
+        self.last_poll_at: float = 0.0
         self._load_state()
         # всё, что уже не нужно тянуть из базы: лежит в кэше или не раскодировалось
         self._known: set[str] = set(self.skipped_ids) | registry.known_ids()
@@ -244,33 +250,66 @@ class TrainingService:
 
     async def bootstrap(self) -> IngestStats:
         await self.repository.connect()
-        total = await self.repository.count()
-        log.info(logs.TABLE_SUMMARY, total, {g: len(s) for g, s in self.registry.stores.items()})
+        self.table_rows = await self.repository.count()
+        self.labeled_rows = await self.repository.count_labeled()
+        log.info(
+            logs.TABLE_SUMMARY,
+            self.table_rows,
+            self.labeled_rows,
+            {g: len(s) for g, s in self.registry.stores.items()},
+        )
         stats = await self.ingest_new()
         log.info(logs.BOOTSTRAP_DONE, stats.added)
         return stats
 
     async def run(self) -> None:
-        await self.bootstrap()
+        self.watching = True
         try:
+            # база может быть ещё не поднята или отдать ошибку: раньше исключение
+            # убивало задачу молча и сервис навсегда оставался без данных
+            while not self._stop.is_set():
+                try:
+                    await self.bootstrap()
+                except Exception as exc:
+                    self._remember_error(exc)
+                    log.exception(logs.BOOTSTRAP_FAILED, self.settings.poll_interval)
+                    await self._sleep_between_polls()
+                    continue
+                break
+
             while not self._stop.is_set():
                 for group in GROUPS:
                     kind = self.needs_training(group)
                     if kind:
                         self._schedule(group, kind)
-                with suppress(TimeoutError):
-                    await asyncio.wait_for(self._stop.wait(), timeout=self.settings.poll_interval)
+                await self._sleep_between_polls()
                 if self._stop.is_set():
                     break
-                stats = await self.ingest_new()
+                try:
+                    stats = await self.ingest_new()
+                except Exception as exc:
+                    self._remember_error(exc)
+                    log.exception(logs.POLL_FAILED, self.settings.poll_interval)
+                    continue
+                self.last_error = None
+                self.last_poll_at = time.time()
                 if stats.total:
                     log.info(logs.POLL_RESULT, stats.added, self.pending_counts())
         finally:
+            self.watching = False
+            log.info(logs.WATCHER_STOPPED)
             for task in self._tasks.values():
                 if not task.done():
                     await task
             await self.repository.close()
             self._save_state()
+
+    def _remember_error(self, exc: Exception) -> None:
+        self.last_error = f"{type(exc).__name__}: {exc}"
+
+    async def _sleep_between_polls(self) -> None:
+        with suppress(TimeoutError):
+            await asyncio.wait_for(self._stop.wait(), timeout=self.settings.poll_interval)
 
     def stop(self) -> None:
         self._stop.set()

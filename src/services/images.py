@@ -108,3 +108,9 @@ class ImageRepository:
     async def count(self) -> int:
         async with self._sessionmaker()() as session:
             return int(await session.scalar(select(func.count()).select_from(self.model)))
+
+    async def count_labeled(self) -> int:
+        """Строк с заполненным answer — только они идут в обучение."""
+        stmt = select(func.count()).select_from(self.model).where(self.model.answer.is_not(None))
+        async with self._sessionmaker()() as session:
+            return int(await session.scalar(stmt))

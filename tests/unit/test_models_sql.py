@@ -28,10 +28,10 @@ def test_model_adds_cursor_column_when_configured():
 def test_keyset_statement_is_indexable_and_ordered():
     repo = ImageRepository(Settings(cursor_column="created_at"))
     sql = compiled(repo.keyset_statement((datetime(2026, 1, 1, tzinfo=UTC), "uuid-1"), 100))
-    assert "labeled_images.created_at >= " in sql  # отдельное условие, чтобы работал индекс
-    assert "labeled_images.created_at > " in sql
-    assert "CAST(labeled_images.id AS TEXT) > " in sql
-    assert "ORDER BY labeled_images.created_at ASC, CAST(labeled_images.id AS TEXT) ASC" in sql
+    assert "captcha.created_at >= " in sql  # отдельное условие, чтобы работал индекс
+    assert "captcha.created_at > " in sql
+    assert "CAST(captcha.id AS TEXT) > " in sql
+    assert "ORDER BY captcha.created_at ASC, CAST(captcha.id AS TEXT) ASC" in sql
     assert "LIMIT" in sql
 
 
@@ -45,4 +45,4 @@ def test_first_page_has_no_cursor_predicate():
 def test_ids_are_compared_as_text():
     repo = ImageRepository(Settings())
     sql = compiled(repo._base_select().where(repo._id_text.in_(["a", "b"])))
-    assert "CAST(labeled_images.id AS TEXT) IN " in sql
+    assert "CAST(captcha.id AS TEXT) IN " in sql

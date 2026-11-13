@@ -19,6 +19,10 @@ FIELD_INGEST_ADDED: Final = "принято строк по группам"
 FIELD_BASELINE_CER: Final = "val_cer до дообучения, с ним сравнивается результат"
 FIELD_GROUP_CONFIDENCE: Final = "уверенность классификатора групп"
 FIELD_PENDING: Final = "новых строк в очереди на дообучение"
+FIELD_TABLE_ROWS: Final = "всего строк в таблице на момент последнего обхода"
+FIELD_LABELED_ROWS: Final = "из них с заполненным answer — только они идут в обучение"
+FIELD_LAST_POLL: Final = "время последнего успешного опроса базы"
+FIELD_LAST_ERROR: Final = "на чём споткнулся фоновый цикл в прошлый раз"
 
 #: режим поиска новых строк, когда настроена колонка-курсор
 CURSOR_MODE_KEYSET: Final = "keyset:{column}"

@@ -23,6 +23,10 @@ def test_status_reports_untrained_groups(client):
     assert set(body["groups"]) == {"words", "digits"}
     assert body["groups"]["words"]["ready"] is False
     assert body["groups"]["words"]["pending"] == 0
+    # без фонового цикла watcher молчит, но поле есть — по нему ищут причину
+    assert body["watcher"]["running"] is False
+    assert body["watcher"]["labeled_rows"] == 0
+    assert body["watcher"]["last_error"] is None
 
 
 def test_predict_requires_trained_model(client):

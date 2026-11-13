@@ -52,6 +52,8 @@ spec:
             - name: CL_ANSWER_COLUMN
               value: answer
             # keyset-обход новых строк; колонке нужен индекс (created_at, id).
+            # Колонка обязана существовать: иначе каждый опрос базы падает с
+            # ошибкой (видно в логах и в /status -> watcher.last_error).
             # Пусто — сервис сверяет все id таблицы с локальным кэшем.
             - name: CL_CURSOR_COLUMN
               value: created_at
@@ -61,12 +63,15 @@ spec:
               value: "5"
             - name: CL_RETRAIN_THRESHOLD
               value: "100"
+            # DEBUG добавит строки про записи, отсеянные фильтром приёма
+            - name: CL_LOG_LEVEL
+              value: INFO
             # без ограничения torch берёт потоки по числу ядер ноды, а не по
             # лимиту пода, и обучение начинает толкаться само с собой
             - name: OMP_NUM_THREADS
               value: "2"
           envFrom:
-            # CL_PG_DSN: workflow CD собирает секрет из DATABASE_URL
+            # CL_PG_DSN: workflow CD собирает секрет из одноимённого секрета GitHub
             - secretRef:
                 name: continuous-learning-db
           # HTTP поднимается сразу, не дожидаясь базы: если Postgres недоступен,

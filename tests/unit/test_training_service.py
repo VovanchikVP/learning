@@ -1,8 +1,10 @@
+import asyncio
 from datetime import datetime
 
 import pytest
 
 from schemas import ImageRow, TrainKind
+from services import StatusService
 from tests.conftest import FakeImageRepository, image_base64, make_rows
 from training import TrainingService
 
@@ -88,6 +90,41 @@ async def test_cursor_roundtrip_without_datetime(settings, registry):
     service = TrainingService(settings, registry, repo)
     await service.ingest_new()
     assert TrainingService(settings, registry, repo).cursor == (42, "id-1")
+
+
+class BrokenRepository(FakeImageRepository):
+    """База отвечает ошибкой — так ведёт себя неверная колонка курсора или упавший Postgres."""
+
+    async def fetch_ids(self):
+        raise RuntimeError("column labeled_images.updated_at does not exist")
+
+
+async def test_watcher_survives_db_errors_and_reports_them(settings, registry):
+    fast = settings.model_copy(update={"poll_interval": 0.01})
+    service = TrainingService(fast, registry, BrokenRepository())
+    task = asyncio.create_task(service.run())
+    try:
+        for _ in range(200):
+            await asyncio.sleep(0.01)
+            if service.last_error:
+                break
+        assert not task.done()  # раньше исключение убивало задачу молча
+        assert service.watching
+        assert "updated_at" in service.last_error
+    finally:
+        service.stop()
+        await asyncio.wait_for(task, timeout=5)
+    assert not service.watching
+
+
+async def test_watcher_state_visible_in_status(settings, registry):
+    service = TrainingService(settings, registry, BrokenRepository())
+    status = StatusService(registry, service).status()
+    assert status.watcher.running is False
+    assert status.watcher.last_error is None
+
+    service.last_error = "RuntimeError: нет связи с базой"
+    assert StatusService(registry, service).status().watcher.last_error.startswith("RuntimeError")
 
 
 def test_needs_training_waits_for_minimum(training, settings):

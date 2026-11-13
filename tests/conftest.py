@@ -47,6 +47,9 @@ class FakeImageRepository:
     async def count(self) -> int:
         return len(self.rows)
 
+    async def count_labeled(self) -> int:
+        return len([row for row in self.rows if row.answer])
+
     async def fetch_ids(self) -> list[str]:
         return [row.id for row in self.rows]
 

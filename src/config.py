@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     cer_regression_tolerance: float = defaults.DEFAULT_CER_REGRESSION_TOLERANCE
     num_workers: int = defaults.DEFAULT_NUM_WORKERS
 
+    # --- логи ---
+    log_level: str = defaults.DEFAULT_LOG_LEVEL
+
     # --- API ---
     api_host: str = defaults.DEFAULT_API_HOST
     api_port: int = defaults.DEFAULT_API_PORT

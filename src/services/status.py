@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from constants.groups import GROUPS
-from schemas import ServiceStatus
+from schemas import ServiceStatus, WatcherStatus
 
 if TYPE_CHECKING:  # только для аннотаций: training импортирует services
     from training.registry import ModelRegistry
@@ -21,6 +21,13 @@ class StatusService:
         pending = self.training.pending_counts()
         return ServiceStatus(
             cursor_mode=self.training.cursor_mode,
+            watcher=WatcherStatus(
+                running=self.training.watching,
+                table_rows=self.training.table_rows,
+                labeled_rows=self.training.labeled_rows,
+                last_poll_at=self.training.last_poll_at,
+                last_error=self.training.last_error,
+            ),
             cursor=self.training.cursor_state,
             known_rows=self.training.known_rows,
             skipped_rows=len(self.training.skipped_ids),

@@ -45,7 +45,7 @@ def test_storage_names_are_consistent():
 
 
 def test_identifier_regex_rejects_injection():
-    assert db.IDENTIFIER_RE.match("labeled_images")
+    assert db.IDENTIFIER_RE.match("captcha")
     assert not db.IDENTIFIER_RE.match("images; drop table users")
 
 

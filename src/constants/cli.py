@@ -2,8 +2,11 @@
 
 from typing import Final
 
+from constants.defaults import DEFAULT_LOG_LEVEL as _DEFAULT_LOG_LEVEL
+
 PROG_NAME: Final = "continuous-learning"
-DEFAULT_LOG_LEVEL: Final = "INFO"
+#: уровень по умолчанию общий с настройками сервиса (CL_LOG_LEVEL)
+DEFAULT_LOG_LEVEL: Final = _DEFAULT_LOG_LEVEL
 JSON_INDENT: Final = 2
 
 DEFAULT_SEED_COUNT: Final = 300

@@ -258,21 +258,63 @@ curl -s localhost:8000/predict -H 'content-type: application/json' \
 
 ## Настройки (`.env`, префикс `CL_`)
 
-| Переменная | По умолчанию | Смысл |
-|---|---|---|
+| Переменная | По умолчанию                                             | Смысл |
+|---|----------------------------------------------------------|---|
 | `CL_PG_DSN` | `postgresql://postgres:postgres@localhost:5432/postgres` | подключение к базе |
-| `CL_TABLE` / `CL_ID_COLUMN` / `CL_IMAGE_COLUMN` / `CL_ANSWER_COLUMN` | `labeled_images` / `id` / `image` / `answer` | таблица и колонки |
-| `CL_CURSOR_COLUMN` | не задана | колонка для keyset-обхода новых строк, например `created_at` |
-| `CL_POLL_INTERVAL` | `5` | период опроса базы, секунды |
-| `CL_RETRAIN_THRESHOLD` | `100` | сколько новых строк в группе запускают дообучение |
-| `CL_MIN_SAMPLES_TO_TRAIN` | `64` | минимум примеров для первого обучения |
-| `CL_INITIAL_EPOCHS` / `CL_INCREMENTAL_EPOCHS` | `80` / `10` | эпохи полного обучения и дообучения |
-| `CL_LR` / `CL_INCREMENTAL_LR` | `3e-4` / `1e-4` | learning rate |
-| `CL_REPLAY_RATIO` | `4.0` | старых примеров на один новый при дообучении |
-| `CL_CER_REGRESSION_TOLERANCE` | `0.01` | допустимое ухудшение `val_cer` |
-| `CL_DEVICE` | `auto` | `auto` / `mps` / `cuda` / `cpu` |
-| `CL_IMG_HEIGHT` / `CL_MAX_IMG_WIDTH` | `32` / `384` | препроцессинг (высота кратна 32) |
-| `CL_BATCH_SIZE` | `32` | размер батча |
+| `CL_TABLE` / `CL_ID_COLUMN` / `CL_IMAGE_COLUMN` / `CL_ANSWER_COLUMN` | `captcha` / `id` / `image` / `answer`                    | таблица и колонки |
+| `CL_CURSOR_COLUMN` | не задана                                                | колонка для keyset-обхода новых строк, например `created_at` |
+| `CL_POLL_INTERVAL` | `5`                                                      | период опроса базы, секунды |
+| `CL_RETRAIN_THRESHOLD` | `100`                                                    | сколько новых строк в группе запускают дообучение |
+| `CL_MIN_SAMPLES_TO_TRAIN` | `64`                                                     | минимум примеров для первого обучения |
+| `CL_INITIAL_EPOCHS` / `CL_INCREMENTAL_EPOCHS` | `80` / `10`                                              | эпохи полного обучения и дообучения |
+| `CL_LR` / `CL_INCREMENTAL_LR` | `3e-4` / `1e-4`                                          | learning rate |
+| `CL_REPLAY_RATIO` | `4.0`                                                    | старых примеров на один новый при дообучении |
+| `CL_CER_REGRESSION_TOLERANCE` | `0.01`                                                   | допустимое ухудшение `val_cer` |
+| `CL_DEVICE` | `auto`                                                   | `auto` / `mps` / `cuda` / `cpu` |
+| `CL_IMG_HEIGHT` / `CL_MAX_IMG_WIDTH` | `32` / `384`                                             | препроцессинг (высота кратна 32) |
+| `CL_BATCH_SIZE` | `32`                                                     | размер батча |
+| `CL_LOG_LEVEL` | `INFO`                                                   | уровень логов; `DEBUG` показывает отсеянные фильтром строки |
+
+## Если сервис не видит данных
+
+`/train/{group}` отвечает `"note": "мало данных: 0 < 64"` — значит, в локальном
+кэше пусто. Причину показывает `/status`:
+
+```bash
+curl -s localhost:8000/status | jq .watcher
+```
+
+```json
+{
+  "running": true,
+  "table_rows": 200,
+  "labeled_rows": 0,
+  "last_poll_at": 1763040000.0,
+  "last_error": null
+}
+```
+
+* `running: false` — фоновый цикл не запущен: сервис подняли с
+  `run_watcher=False` или процесс останавливается;
+* `last_error` не пуст — опрос базы падает. Самое частое: в `CL_CURSOR_COLUMN`
+  указана колонка, которой нет в таблице; текст ошибки из PostgreSQL виден
+  целиком и там же, в логах, с трейсбеком;
+* `labeled_rows: 0` при ненулевом `table_rows` — в таблице нет строк с
+  заполненным `answer`, обучать нечего: в выборку попадают только размеченные;
+* `labeled_rows` большой, а `known_rows` (в корне `/status`) нулевой — строки
+  отсеивает фильтр приёма, смотрите `skipped_rows` и логи на `CL_LOG_LEVEL=DEBUG`.
+
+Те же сведения есть в логах на старте:
+
+```
+INFO services.images: подключение к PostgreSQL установлено (режим: keyset по created_at)
+INFO training.service: в таблице 200 строк, из них с ответом 200; в локальном кэше {'words': 0, 'digits': 0}
+INFO training.service: загружено новых строк: {'words': 100, 'digits': 100}
+```
+
+Если этих строк в логах нет вообще, логирование перебито снаружи: сервис
+настраивает его сам (`utils.setup_logging`), но уважает уже установленные
+обработчики root-логгера.
 
 ## Состояние на диске
 

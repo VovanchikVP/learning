@@ -3,7 +3,7 @@
 from .common import GroupName, RoutingMode
 from .images import ImageRow, IngestStats
 from .prediction import Candidate, PredictionResult, PredictRequest
-from .status import ClassifierStatus, CursorState, GroupStatus, ServiceStatus
+from .status import ClassifierStatus, CursorState, GroupStatus, ServiceStatus, WatcherStatus
 from .training import (
     ClassifierTrainResult,
     EvalResult,
@@ -29,4 +29,5 @@ __all__ = [
     "ServiceStatus",
     "TrainKind",
     "TrainResult",
+    "WatcherStatus",
 ]

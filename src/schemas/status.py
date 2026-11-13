@@ -5,7 +5,13 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from constants.defaults import DEFAULT_RETRAIN_THRESHOLD
-from templates.api import FIELD_PENDING
+from templates.api import (
+    FIELD_LABELED_ROWS,
+    FIELD_LAST_ERROR,
+    FIELD_LAST_POLL,
+    FIELD_PENDING,
+    FIELD_TABLE_ROWS,
+)
 
 from .common import GroupName
 from .training import TrainResult
@@ -44,8 +50,19 @@ class ClassifierStatus(BaseModel):
     updated_at: float = 0.0
 
 
+class WatcherStatus(BaseModel):
+    """Состояние фонового цикла: он наполняет кэш и запускает дообучение."""
+
+    running: bool = False
+    table_rows: int = Field(default=0, description=FIELD_TABLE_ROWS)
+    labeled_rows: int = Field(default=0, description=FIELD_LABELED_ROWS)
+    last_poll_at: float = Field(default=0.0, description=FIELD_LAST_POLL)
+    last_error: str | None = Field(default=None, description=FIELD_LAST_ERROR)
+
+
 class ServiceStatus(BaseModel):
     cursor_mode: str
+    watcher: WatcherStatus = Field(default_factory=WatcherStatus)
     cursor: CursorState | None = None
     known_rows: int = 0
     skipped_rows: int = 0

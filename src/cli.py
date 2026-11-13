@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import base64
-import logging
 import sys
 import uuid
 from io import BytesIO
@@ -16,11 +15,7 @@ from constants.groups import GROUPS
 from schemas import TrainKind
 from templates import cli as texts
 from templates import sql
-from templates.logs import LOG_DATE_FORMAT, LOG_FORMAT
-
-
-def setup_logging(level: str = cc.DEFAULT_LOG_LEVEL) -> None:
-    logging.basicConfig(level=level, format=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+from utils import setup_logging
 
 
 def metric(value: float | None, template: str) -> str:

@@ -1,8 +1,23 @@
 from __future__ import annotations
 
+import logging
 import zlib
 
+from constants.defaults import DEFAULT_LOG_LEVEL
 from constants.training import VAL_BUCKETS
+from templates.logs import LOG_DATE_FORMAT, LOG_FORMAT
+
+
+def setup_logging(level: str = DEFAULT_LOG_LEVEL) -> None:
+    """Вывод логов в stdout.
+
+    Под uvicorn root-логгер остаётся без обработчиков: свои INFO-сообщения
+    сервиса тогда никуда не попадают, в логах видны только строки uvicorn.
+    Поэтому фабрика приложения зовёт эту функцию так же, как CLI.
+    """
+    if logging.getLogger().handlers:  # уже настроено снаружи — не трогаем
+        return
+    logging.basicConfig(level=level, format=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
 
 
 def levenshtein(a: str, b: str) -> int:
