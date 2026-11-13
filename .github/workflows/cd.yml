@@ -122,12 +122,12 @@ jobs:
 
       - name: Сформировать k8s/secret.yaml
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CL_PG_DSN: ${{ secrets.CL_PG_DSN }}
         run: |
           set -euo pipefail
 
-          if [ -z "$DATABASE_URL" ]; then
-            echo "::error::секрет DATABASE_URL пуст — без него фоновый цикл обучения не стартует"
+          if [ -z "$CL_PG_DSN" ]; then
+            echo "::error::секрет CL_PG_DSN пуст — без него фоновый цикл обучения не стартует"
             exit 1
           fi
 
@@ -137,7 +137,7 @@ jobs:
           # маскировка GitHub на base64 всё равно не распространяется.
           kubectl create secret generic "${APP}-db" \
             --namespace "$NAMESPACE" \
-            --from-literal=CL_PG_DSN="$DATABASE_URL" \
+            --from-literal=CL_PG_DSN="$CL_PG_DSN" \
             --dry-run=client -o yaml > k8s/secret.yaml
 
           echo "в secret.yaml попали:"

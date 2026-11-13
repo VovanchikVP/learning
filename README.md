@@ -339,7 +339,7 @@ kubectl -n rtt rollout status deployment/continuous-learning
 | `WG_CONFIG` | конфиг WireGuard в base64 — через него раннер видит кластер |
 | `KUBE_API` | `https://<нода>:6443`, проверка доступности перед выкаткой |
 | `KUBE_CONFIG` | kubeconfig (base64 или открытым текстом), без `127.0.0.1` в `server` |
-| `DATABASE_URL` | строка подключения к Postgres, кладётся в секрет `continuous-learning-db` как `CL_PG_DSN` |
+| `CL_PG_DSN` | строка подключения к Postgres, кладётся в секрет кластера `continuous-learning-db` под тем же именем |
 
 Секрет создаётся на выкатке через `kubectl create secret --dry-run=client`,
 в репозитории не хранится и удаляется с раннера в `always()`-шаге.

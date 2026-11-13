@@ -44,7 +44,7 @@ spec:
               value: cpu
             # имена таблицы и колонок с размеченными картинками
             - name: CL_TABLE
-              value: labeled_images
+              value: captcha
             - name: CL_ID_COLUMN
               value: id
             - name: CL_IMAGE_COLUMN
